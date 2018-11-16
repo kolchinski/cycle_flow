@@ -99,9 +99,12 @@ def define_invertible_G(image_shape, hidden_channels, netG, init_type='normal', 
         net = FlowNet(image_shape, hidden_channels)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
-    fwd_net = init_net(net, init_type, init_gain, gpu_ids)
-    reverse_net = ReverseFlowNet(fwd_net)
-    return fwd_net, reverse_net
+
+    net = init_net(net, init_type, init_gain, gpu_ids)
+    fwd_net = FlowNetDirection(net, inverted=False)
+    back_net = FlowNetDirection(net, inverted=True)
+
+    return fwd_net, back_net 
 
 
 def define_D(input_nc, ndf, netD,
@@ -244,40 +247,6 @@ class FlowStep(nn.Module):
         z, logdet = self.actnorm(z, logdet=logdet, reverse=True)
         return z, logdet
 
-class ReverseFlowNet(nn.Module):
-    def __init__(self, fwdNet):
-        super().__init__()
-        self.fwdNet = fwdNet
-
-    #def forward(self, input, reverse=False, **kwargs):
-    #    return self.fwdNet.forward(input, not reverse, **kwargs)
-
-    #def encode(self, **kwargs):
-    #    return self.fwdNet.encode(**kwargs)[0]
-
-    #def decode(self, **kwargs):
-    #    return self.fwdNet.decode(**kwargs)
-
-
-    def forward(self, input, logdet=0., reverse=False, eps_std=None):
-        reverse = not reverse # We flipped it!
-        if not reverse:
-            return self.encode(input, logdet)
-        else:
-            return self.decode(input, eps_std)
-
-    def encode(self, z, logdet=0.0):
-        for layer, shape in zip(self.fwdNet.layers, self.fwdNet.output_shapes):
-            z, logdet = layer(z, logdet, reverse=False)
-        return z
-
-    def decode(self, z, eps_std=None):
-        for layer in reversed(self.fwdNet.layers):
-            if isinstance(layer, modules.Split2d):
-                z, logdet = layer(z, logdet=0, reverse=True, eps_std=eps_std)
-            else:
-                z, logdet = layer(z, logdet=0, reverse=True)
-        return z
 
 class FlowNet(nn.Module):
     def __init__(self, image_shape, hidden_channels,
@@ -333,8 +302,8 @@ class FlowNet(nn.Module):
     def encode(self, z, logdet=0.0):
         for layer, shape in zip(self.layers, self.output_shapes):
             z, logdet = layer(z, logdet, reverse=False)
-        return z
-        #return z, logdet # original Glow Pytorch code - let's figure this out
+        # return z
+        return z, logdet # original Glow Pytorch code - let's figure this out
 
     def decode(self, z, eps_std=None):
         for layer in reversed(self.layers):
@@ -343,6 +312,29 @@ class FlowNet(nn.Module):
             else:
                 z, logdet = layer(z, logdet=0, reverse=True)
         return z
+
+
+class FlowNetDirection(object):
+
+    def __init__(self, net, inverted):
+        super(FlowNetDirection, self).__init__()
+        self.net = net
+        self.inverted = inverted
+
+    def forward(**kwargs):
+        # kwargs[reverse], self.inverted
+        # NaN OR False, True - so call net in reverse direction b -> a
+        # NaN OR False, False - call net in forward direction a -> b
+        # True, True - call net in forward direction a -> b
+        # True, False - b -> a
+        param_reverse = False
+        if reverse in kwargs:
+            param_reverse = kwargs[reverse]
+
+        updated_reverse = param_reverse != self.inverted
+
+        kwargs[reverse] = updated_reverse
+        return self.net.forward(kwargs)
 
 
 # Defines the generator that consists of Resnet blocks between a few
