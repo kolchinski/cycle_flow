@@ -102,6 +102,7 @@ def define_invertible_G(image_shape, hidden_channels, netG, init_type='normal', 
 
     net = init_net(net, init_type, init_gain, gpu_ids)
     fwd_net = FlowNetDirection(net, inverted=False)
+    # back_net = fwd_net
     back_net = FlowNetDirection(net, inverted=True)
 
     return fwd_net, back_net 
@@ -318,10 +319,19 @@ class FlowNetDirection(object):
 
     def __init__(self, net, inverted):
         super(FlowNetDirection, self).__init__()
-        self.net = net
         self.inverted = inverted
+        self.net = net
 
-    def forward(**kwargs):
+    def __call__(self, **kwargs):
+        return self.net(**kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self.net, name)
+
+    def __getitem__(self, items):
+        return getitem(self.net, items)
+
+    def forward(self, **kwargs):
         # kwargs[reverse], self.inverted
         # NaN OR False, True - so call net in reverse direction b -> a
         # NaN OR False, False - call net in forward direction a -> b
