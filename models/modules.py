@@ -355,3 +355,18 @@ class SqueezeLayer(nn.Module):
         else:
             output = unsqueeze2d(input, self.factor)
             return output, logdet
+
+
+
+class UnSqueezeLayer(nn.Module):
+    def __init__(self, factor):
+        super().__init__()
+        self.factor = factor
+
+    def forward(self, input, logdet=None, reverse=False):
+        if reverse:
+            output = squeeze2d(input, self.factor)
+            return output, logdet
+        else:
+            output = unsqueeze2d(input, self.factor)
+            return output, logdet

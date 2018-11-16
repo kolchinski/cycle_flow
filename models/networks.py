@@ -288,11 +288,16 @@ class FlowNet(nn.Module):
                              LU_decomposed=LU_decomposed))
                 self.output_shapes.append(
                     [-1, C, H, W])
-            # 3. Split2d
-            if i < L - 1:
-                self.layers.append(modules.Split2d(num_channels=C))
-                self.output_shapes.append([-1, C // 2, H, W])
-                C = C // 2
+            ## 3. Split2d
+            #if i < L - 1:
+            #    self.layers.append(modules.Split2d(num_channels=C))
+            #    self.output_shapes.append([-1, C // 2, H, W])
+            #    C = C // 2
+        for i in range(L):
+            # 1. UnSqueeze
+            C, H, W = C // 4, H * 2, W * 2
+            self.layers.append(modules.UnSqueezeLayer(factor=2))
+            self.output_shapes.append([-1, C, H, W])
 
     def forward(self, input, logdet=0., reverse=False, eps_std=None):
         if not reverse:
@@ -312,7 +317,9 @@ class FlowNet(nn.Module):
                 z, logdet = layer(z, logdet=0, reverse=True, eps_std=eps_std)
             else:
                 z, logdet = layer(z, logdet=0, reverse=True)
-        return z
+        # WARNING TODO: THIS IS NOT RIGHT, only including logdet for return
+        # signature purposes. Rewrite when the value is actually needed
+        return z, logdet
 
 
 class FlowNetDirection(object):
@@ -322,29 +329,35 @@ class FlowNetDirection(object):
         self.inverted = inverted
         self.net = net
 
-    def __call__(self, **kwargs):
-        return self.net(**kwargs)
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
 
     def __getattr__(self, name):
         return getattr(self.net, name)
 
-    def __getitem__(self, items):
-        return getitem(self.net, items)
+    # Fix this if we need it later
+    #def __getitem__(self, items):
+    #    return [self.net[item] for item in items]
 
-    def forward(self, **kwargs):
+    def forward(self, *args, **kwargs):
         # kwargs[reverse], self.inverted
         # NaN OR False, True - so call net in reverse direction b -> a
         # NaN OR False, False - call net in forward direction a -> b
         # True, True - call net in forward direction a -> b
         # True, False - b -> a
         param_reverse = False
-        if reverse in kwargs:
-            param_reverse = kwargs[reverse]
+        if 'reverse' in kwargs:
+            param_reverse = kwargs['reverse']
+        elif len(args) >= 3:
+            param_reverse = args[2]
 
         updated_reverse = param_reverse != self.inverted
 
-        kwargs[reverse] = updated_reverse
-        return self.net.forward(kwargs)
+        kwargs['reverse'] = updated_reverse
+
+        #TODO: monster hack, we're just throwing out the determinants -
+        #fix this later
+        return self.net.forward(*args, **kwargs)[0]
 
 
 # Defines the generator that consists of Resnet blocks between a few
