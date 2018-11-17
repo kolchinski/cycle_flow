@@ -216,13 +216,16 @@ class FlowStep(nn.Module):
         # 3. coupling
         z1, z2 = thops.split_feature(z, "split")
         if self.flow_coupling == "additive":
-            z2 += self.f(z1)
+            #TODO: make sure gradients are propogating through
+            # here correctly and fix the affine layer too;
+            # in place ops are not ok in PyTorch
+            z2 = z2 + self.f(z1)
         elif self.flow_coupling == "affine":
             h = self.f(z1)
             shift, scale = thops.split_feature(h, "cross")
             scale = torch.sigmoid(scale + 2.)
-            z2 += shift
-            z2 *= scale
+            z2 = z2 + shift
+            z2 = z2 * scale
             logdet = thops.sum(torch.log(scale), dim=[1, 2, 3]) + logdet
         z = thops.cat_feature(z1, z2)
         return z, logdet
@@ -232,13 +235,13 @@ class FlowStep(nn.Module):
         # 1.coupling
         z1, z2 = thops.split_feature(input, "split")
         if self.flow_coupling == "additive":
-            z2 -= self.f(z1)
+            z2 = z2 - self.f(z1)
         elif self.flow_coupling == "affine":
             h = self.f(z1)
             shift, scale = thops.split_feature(h, "cross")
             scale = torch.sigmoid(scale + 2.)
-            z2 /= scale
-            z2 -= shift
+            z2 = z2 / scale
+            z2 = z2 - shift
             logdet = -thops.sum(torch.log(scale), dim=[1, 2, 3]) + logdet
         z = thops.cat_feature(z1, z2)
         # 2. permute
