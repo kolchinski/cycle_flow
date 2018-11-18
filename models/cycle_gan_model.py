@@ -87,7 +87,6 @@ class CycleGANModel(BaseModel):
     def forward(self):
         self.fake_B = self.netG_A(self.real_A)
         self.rec_A = self.netG_B(self.fake_B)
-
         self.fake_A = self.netG_B(self.real_B)
         self.rec_B = self.netG_A(self.fake_A)
 

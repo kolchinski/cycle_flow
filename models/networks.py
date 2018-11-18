@@ -257,7 +257,8 @@ class FlowNet(nn.Module):
                  K=8,
                  L=3,
                  actnorm_scale=1.0,
-                 flow_permutation="invconv",
+                 flow_permutation="shuffle",
+                 # flow_permutation="invconv", TODO: This seems to blow up our z values in the reverse flow step. Switch to shuffle for now
                  flow_coupling="additive",
                  LU_decomposed=False):
         """
@@ -291,11 +292,13 @@ class FlowNet(nn.Module):
                              LU_decomposed=LU_decomposed))
                 self.output_shapes.append(
                     [-1, C, H, W])
+
             ## 3. Split2d
             #if i < L - 1:
             #    self.layers.append(modules.Split2d(num_channels=C))
             #    self.output_shapes.append([-1, C // 2, H, W])
             #    C = C // 2
+
         for i in range(L):
             # 1. UnSqueeze
             C, H, W = C // 4, H * 2, W * 2
