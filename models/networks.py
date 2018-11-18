@@ -91,12 +91,16 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     return init_net(net, init_type, init_gain, gpu_ids)
 
 
-def define_invertible_G(image_shape, hidden_channels, netG, init_type='normal', init_gain=0.02, gpu_ids=[]):
+def define_invertible_G(image_shape, hidden_channels, netG,
+                        use_split_layers, use_squeeze_layers,
+                        init_type='normal', init_gain=0.02, gpu_ids=[],
+                        ):
     net = None
     #norm_layer = get_norm_layer(norm_type=norm)
 
     if netG == 'glow':
-        net = FlowNet(image_shape, hidden_channels)
+        net = FlowNet(image_shape, hidden_channels,
+                      use_split_layers=use_split_layers, use_squeeze_layers=use_squeeze_layers)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
 
@@ -260,6 +264,8 @@ class FlowNet(nn.Module):
                  flow_permutation="shuffle",
                  # flow_permutation="invconv", TODO: This seems to blow up our z values in the reverse flow step. Switch to shuffle for now
                  flow_coupling="additive",
+                 use_split_layers=False,
+                 use_squeeze_layers=True,
                  LU_decomposed=False):
         """
                              K                                      K
@@ -276,11 +282,21 @@ class FlowNet(nn.Module):
         H, W, C = image_shape
         assert C == 1 or C == 3, ("image_shape should be HWC, like (64, 64, 3)"
                                   "C == 1 or C == 3")
-        for i in range(L):
+
+        # Need at least one squeeze op to make # channels even
+        if not use_squeeze_layers:
             # 1. Squeeze
             C, H, W = C * 4, H // 2, W // 2
             self.layers.append(modules.SqueezeLayer(factor=2))
             self.output_shapes.append([-1, C, H, W])
+
+        for i in range(L):
+
+            if use_squeeze_layers:
+                # 1. Squeeze
+                C, H, W = C * 4, H // 2, W // 2
+                self.layers.append(modules.SqueezeLayer(factor=2))
+                self.output_shapes.append([-1, C, H, W])
             # 2. K FlowStep
             for _ in range(K):
                 self.layers.append(
@@ -293,20 +309,22 @@ class FlowNet(nn.Module):
                 self.output_shapes.append(
                     [-1, C, H, W])
 
+            if use_split_layers:
+                # 3. Split2d
+                if i < L - 1:
+                    self.layers.append(modules.Split2d(num_channels=C))
+                    self.output_shapes.append([-1, C // 2, H, W])
+                    C = C // 2
+
+        if use_squeeze_layers:
+            num_unsqueezes = L
+        else: num_unsqueezes = 1
+
+        for i in range(num_unsqueezes):
+            # 1. UnSqueeze
             C, H, W = C // 4, H * 2, W * 2
             self.layers.append(modules.UnSqueezeLayer(factor=2))
             self.output_shapes.append([-1, C, H, W])
-            ## 3. Split2d
-            #if i < L - 1:
-            #    self.layers.append(modules.Split2d(num_channels=C))
-            #    self.output_shapes.append([-1, C // 2, H, W])
-            #    C = C // 2
-
-        # for i in range(L):
-        #     # 1. UnSqueeze
-        #     C, H, W = C // 4, H * 2, W * 2
-        #     self.layers.append(modules.UnSqueezeLayer(factor=2))
-        #     self.output_shapes.append([-1, C, H, W])
 
     def forward(self, input, logdet=0., reverse=False, eps_std=None):
         if not reverse:
