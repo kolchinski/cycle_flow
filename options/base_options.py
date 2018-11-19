@@ -25,6 +25,7 @@ class BaseOptions():
         parser.add_argument('--invertible_G', action='store_true', help='One invertible generator instead of two?')
         parser.add_argument('--use_squeeze_layers', action='store_true' , help='For Glow, use squeeze layers?')
         parser.add_argument('--use_split_layers', action='store_true', help='For Glow, use squeeze layers?')
+        parser.add_argument('--use_affine_layers', action='store_true', help='For Glow, use affine and not just additive layers?')
         parser.add_argument('--n_layers_D', type=int, default=3, help='only used if netD==n_layers')
         parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         parser.add_argument('--name', type=str, default='experiment_name', help='name of the experiment. It decides where to store samples and models')

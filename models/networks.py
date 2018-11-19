@@ -93,6 +93,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
 
 def define_invertible_G(image_shape, hidden_channels, netG,
                         use_split_layers, use_squeeze_layers,
+                        flow_coupling='additive',
                         init_type='normal', init_gain=0.02, gpu_ids=[],
                         ):
     net = None
@@ -100,7 +101,8 @@ def define_invertible_G(image_shape, hidden_channels, netG,
 
     if netG == 'glow':
         net = FlowNet(image_shape, hidden_channels,
-                      use_split_layers=use_split_layers, use_squeeze_layers=use_squeeze_layers)
+                      use_split_layers=use_split_layers, use_squeeze_layers=use_squeeze_layers,
+                      flow_coupling=flow_coupling)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
 

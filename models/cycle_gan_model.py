@@ -47,9 +47,11 @@ class CycleGANModel(BaseModel):
         if opt.invertible_G:
             assert(opt.input_nc == opt.output_nc) # Invertible model requires input shape == output shape
             image_shape = (opt.fineSize, opt.fineSize, opt.input_nc)
-            self.netG_A, self.netG_B = networks.define_invertible_G(image_shape, opt.ngf, opt.netG,
-                                                                    opt.use_split_layers, opt.use_squeeze_layers,
-                                                                    opt.init_type, opt.init_gain, self.gpu_ids)
+            self.netG_A, self.netG_B = networks.define_invertible_G(
+                image_shape, opt.ngf, opt.netG,
+                opt.use_split_layers, opt.use_squeeze_layers,
+                'affine' if opt.use_affine_layers else 'additive',
+                opt.init_type, opt.init_gain, self.gpu_ids)
         else:
             self.netG_A = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
                                             not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
