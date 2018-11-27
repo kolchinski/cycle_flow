@@ -159,7 +159,9 @@ class Conv2dZeros(nn.Conv2d):
         self.logscale_factor = logscale_factor
         self.register_parameter("logs", nn.Parameter(torch.zeros(out_channels, 1, 1)))
         # init
-        self.weight.data.zero_()
+        # TODO: This is not working! Values are nonzero by the time this is called
+        #self.weight.data.zero_()
+        nn.init.constant(self.weight.data, 0)
         self.bias.data.zero_()
 
     def forward(self, input):
