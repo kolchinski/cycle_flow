@@ -98,6 +98,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
 
 def define_invertible_G(image_shape, hidden_channels, netG,
                         use_split_layers, use_squeeze_layers,
+                        nK, nL,
                         flow_coupling='additive',
                         init_type='normal', init_gain=0.02, gpu_ids=[],
                         ):
@@ -105,7 +106,7 @@ def define_invertible_G(image_shape, hidden_channels, netG,
     #norm_layer = get_norm_layer(norm_type=norm)
 
     if netG == 'glow':
-        net = FlowNet(image_shape, hidden_channels,
+        net = FlowNet(image_shape, hidden_channels, nK, nL,
                       use_split_layers=use_split_layers, use_squeeze_layers=use_squeeze_layers,
                       flow_coupling=flow_coupling)
     else:
@@ -266,8 +267,7 @@ class FlowStep(nn.Module):
 
 class FlowNet(nn.Module):
     def __init__(self, image_shape, hidden_channels,
-                 K=8,
-                 L=3,
+                 K, L, #Arch size hyperparams - defaults in base_options
                  actnorm_scale=1.0,
                  flow_permutation="shuffle",
                  # flow_permutation="invconv", TODO: This seems to blow up our z values in the reverse flow step. Switch to shuffle for now
