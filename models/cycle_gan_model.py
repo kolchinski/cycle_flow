@@ -50,7 +50,7 @@ class CycleGANModel(BaseModel):
             self.netG_A, self.netG_B = networks.define_invertible_G(
                 image_shape, opt.ngf, opt.netG,
                 opt.use_split_layers, opt.use_squeeze_layers,
-                opt.nK, opt.nL,
+                opt.nK, opt.nL, opt.hourglass_architecture,
                 'affine' if opt.use_affine_layers else 'additive',
                 opt.init_type, opt.init_gain, self.gpu_ids)
         else:

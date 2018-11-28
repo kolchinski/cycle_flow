@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import init
 import functools
+import torch.nn.functional as F
 from torch.optim import lr_scheduler
 from . import modules, thops #Lifted from Pytorch Glow by chaiyujin@github
 
@@ -99,6 +100,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
 def define_invertible_G(image_shape, hidden_channels, netG,
                         use_split_layers, use_squeeze_layers,
                         nK, nL,
+                        hourglass_architecture,
                         flow_coupling='additive',
                         init_type='normal', init_gain=0.02, gpu_ids=[],
                         ):
@@ -108,7 +110,7 @@ def define_invertible_G(image_shape, hidden_channels, netG,
     if netG == 'glow':
         net = FlowNet(image_shape, hidden_channels, nK, nL,
                       use_split_layers=use_split_layers, use_squeeze_layers=use_squeeze_layers,
-                      flow_coupling=flow_coupling)
+                      flow_coupling=flow_coupling, hourglass_architecture=hourglass_architecture)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
 
@@ -234,7 +236,19 @@ class FlowStep(nn.Module):
             shift, scale = thops.split_feature(h, "cross")
             #shift, scale = thops.split_feature(h, "split")
             #scale = torch.sigmoid(scale + 2.)
-            scale = .1 + .9*torch.sigmoid(scale + 2.)
+            scale = F.softplus(scale + 2.)
+            scale = torch.clamp(scale, 0., 2.)
+
+            #vol_nonpreserve = torch.mean(scale) - 1.0
+            #scale_factor = min(max(vol_nonpreserve, -.1), .1)
+            #scale = scale + 1.0 - torch.mean(scale) + scale_factor
+
+            #Renormalize scale to unit rescale on average
+            #scale = scale + 1.0 - torch.mean(scale)
+
+            # This works... can use .1 instead of .5
+            #scale = .5 + .5*torch.sigmoid(scale + 2.)
+
             #print(scale.mean())
             z2 = z2 + shift
             z2 = z2 * scale
@@ -252,7 +266,23 @@ class FlowStep(nn.Module):
             h = self.f(z1)
             shift, scale = thops.split_feature(h, "cross")
             #scale = torch.sigmoid(scale + 2.)
-            scale = .1 + .9*torch.sigmoid(scale + 2.)
+
+            #scale = F.softplus(scale + 2.)
+            scale = F.softplus(scale + 2.)
+            scale = torch.clamp(scale, 0., 2.)
+
+            #vol_nonpreserve = torch.mean(scale) - 1.0
+            #scale_factor = min(max(vol_nonpreserve, -.1), .1)
+            #scale = scale + 1.0 - torch.mean(scale) + scale_factor
+
+
+            #Renormalize scale to unit rescale on average
+            #scale = scale + 1.0 - torch.mean(scale)
+
+            #scale = .5 + .5*torch.sigmoid(scale + 2.)
+
+
+
             z2 = z2 / scale
             z2 = z2 - shift
             logdet = -thops.sum(torch.log(scale), dim=[1, 2, 3]) + logdet
@@ -272,6 +302,7 @@ class FlowNet(nn.Module):
                  flow_permutation="shuffle",
                  # flow_permutation="invconv", TODO: This seems to blow up our z values in the reverse flow step. Switch to shuffle for now
                  flow_coupling="additive",
+                 hourglass_architecture=False,
                  use_split_layers=False,
                  use_squeeze_layers=True,
                  LU_decomposed=False):
@@ -282,6 +313,7 @@ class FlowNet(nn.Module):
                |          (L - 1)          |
                + --------------------------+
         """
+
         super().__init__()
         self.layers = nn.ModuleList()
         self.output_shapes = []
@@ -333,6 +365,19 @@ class FlowNet(nn.Module):
             C, H, W = C // 4, H * 2, W * 2
             self.layers.append(modules.UnSqueezeLayer(factor=2))
             self.output_shapes.append([-1, C, H, W])
+
+            if hourglass_architecture and i != num_unsqueezes - 1:
+                # 2. K FlowSteps
+                for _ in range(K):
+                    self.layers.append(
+                        FlowStep(in_channels=C,
+                                 hidden_channels=hidden_channels,
+                                 actnorm_scale=actnorm_scale,
+                                 flow_permutation=flow_permutation,
+                                 flow_coupling=flow_coupling,
+                                 LU_decomposed=LU_decomposed))
+                    self.output_shapes.append(
+                        [-1, C, H, W])
 
     def forward(self, input, logdet=0., reverse=False, eps_std=None):
         if not reverse:

@@ -26,6 +26,7 @@ class BaseOptions():
         parser.add_argument('--use_squeeze_layers', action='store_true' , help='For Glow, use squeeze layers?')
         parser.add_argument('--use_split_layers', action='store_true', help='For Glow, use squeeze layers?')
         parser.add_argument('--use_affine_layers', action='store_true', help='For Glow, use affine and not just additive layers?')
+        parser.add_argument('--hourglass_architecture', action='store_true', help='Include flow steps in unsqueeze layers?')
         parser.add_argument('--nK', type=int, default=8, help='Number of flow steps per scale')
         parser.add_argument('--nL', type=int, default=3, help='Number of scales of multi-scale flow architecture ')
         parser.add_argument('--n_layers_D', type=int, default=3, help='only used if netD==n_layers')
