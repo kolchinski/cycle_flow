@@ -233,7 +233,7 @@ class FlowStep(nn.Module):
             shift, scale = thops.split_feature(h, "cross")
             #shift, scale = thops.split_feature(h, "split")
             #scale = torch.sigmoid(scale + 2.)
-            scale = .01 + .99*torch.sigmoid(scale + 2.)
+            scale = .1 + .9*torch.sigmoid(scale + 2.)
             #print(scale.mean())
             z2 = z2 + shift
             z2 = z2 * scale
@@ -251,7 +251,7 @@ class FlowStep(nn.Module):
             h = self.f(z1)
             shift, scale = thops.split_feature(h, "cross")
             #scale = torch.sigmoid(scale + 2.)
-            scale = .01 + .99*torch.sigmoid(scale + 2.)
+            scale = .1 + .9*torch.sigmoid(scale + 2.)
             z2 = z2 / scale
             z2 = z2 - shift
             logdet = -thops.sum(torch.log(scale), dim=[1, 2, 3]) + logdet
