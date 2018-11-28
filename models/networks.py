@@ -43,7 +43,9 @@ def get_scheduler(optimizer, opt):
 def init_weights(net, init_type='normal', gain=0.02):
     def init_func(m):
         classname = m.__class__.__name__
-        if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
+        if hasattr(m, 'weight') and m.weight is not None \
+                and classname.find('Conv') == -1 \
+                and classname.find('Linear') == -1:
             if init_type == 'normal':
                 init.normal_(m.weight.data, 0.0, gain)
             elif init_type == 'xavier':
