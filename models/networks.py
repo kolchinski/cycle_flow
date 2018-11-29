@@ -40,7 +40,6 @@ def get_scheduler(optimizer, opt):
     return scheduler
 
 
-#TODO: Why is this being done??? It's screwing up all the weights
 def init_weights(net, init_type='normal', gain=0.02):
     def init_func(m):
         classname = m.__class__.__name__
@@ -70,6 +69,7 @@ def init_weights(net, init_type='normal', gain=0.02):
 
 
 def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
+    print("GPU IDs: {}".format(gpu_ids))
     if len(gpu_ids) > 0:
         assert(torch.cuda.is_available())
         net.to(gpu_ids[0])
